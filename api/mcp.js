@@ -2,7 +2,7 @@
 // here). scripts/mcp-stdio.mjs serves the same `handle` over stdio. It reads
 // /api/v1/events.json, which scripts/events.mjs writes daily, and stores
 // nothing about whoever asks.
-import { REGIONS, TOPIC_NAMES, TYPE_NAMES, norm, regionOf } from "../lib/classify.mjs";
+import { REGIONS, TOPIC_NAMES, TYPE_NAMES, norm, regionNamed } from "../lib/classify.mjs";
 
 const VERSIONS = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
 const SERVER = { name: "spain-tech-events", title: "Spain Tech Events", version: "0.1.0" };
@@ -34,7 +34,7 @@ const TOOLS = {
       query: { type: "string", description: "Words that must all appear in the title, organiser, description or city, e.g. 'kubernetes', 'claude barcelona'." },
       type: { type: "string", description: `One of: ${TYPE_NAMES.join(", ")}.` },
       topic: { type: "string", description: `One of: ${TOPIC_NAMES.join(", ")}.` },
-      region: { type: "string", description: "A city or a Spanish region by name or code, e.g. Madrid, Bilbao, Cataluña, AN. Online events are left out unless online is true." },
+      region: { type: "string", description: "A Spanish region by name or code (Cataluña, AN, Madrid: the whole region) or a city (Bilbao, Málaga: that city only). Online events are left out unless online is true." },
       from: { type: "string", description: "First day, YYYY-MM-DD. Default: today." },
       to: { type: "string", description: "Last day, YYYY-MM-DD." },
       online: { type: "string", description: "true for online events only, false for in-person only." },
@@ -50,7 +50,8 @@ const TOOLS = {
       for (const name of ["from", "to"])
         if (args[name] && !DAY.test(args[name])) throw new BadArgument(`${name} must be YYYY-MM-DD.`);
       const words = norm(args.query).split(/\s+/).filter(Boolean);
-      const place = norm(args.region), region = place ? regionOf(place) : null;
+      // A region's name means the whole region; a city means that city only.
+      const place = norm(args.region), region = place ? regionNamed(place) : null;
       if (place && !region && !index.events.some((e) => norm(e.city) === place))
         throw new BadArgument(`Unknown place "${args.region}". Call list_filters for the regions and cities with events.`);
       const online = flag(args.online), free = flag(args.free), open = flag(args.open);
@@ -59,7 +60,7 @@ const TOOLS = {
         const text = norm(`${e.title} ${e.organizer ?? ""} ${e.description ?? ""} ${e.city ?? ""}`);
         return (e.end?.slice(0, 10) ?? e.date) >= from && (!args.to || e.date <= args.to)
           && (!args.type || e.type === norm(args.type)) && (!args.topic || e.topics.includes(norm(args.topic)))
-          && (!place || (online && e.online) || norm(e.city) === place || (region && e.region === region))
+          && (!place || (online && e.online) || (region ? e.region === region : norm(e.city) === place))
           && (online === null || e.online === online) && (!free || e.free === true)
           && (!open || !["full", "closed", "waitlist"].includes(e.registration))
           && words.every((w) => text.includes(w));

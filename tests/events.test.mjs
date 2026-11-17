@@ -91,6 +91,8 @@ test("mcp", () => {
   assert.deepEqual(call("find_events", { from, type: "hackathon" }).structuredContent.events.map((e) => e.title), ["HackBCN"]);
   assert.deepEqual(call("find_events", { from, region: "Cataluña" }).structuredContent.events.map((e) => e.title), ["HackBCN"]);
   assert.deepEqual(call("find_events", { from, region: "madrid", query: "kubernetes" }).structuredContent.events.map((e) => e.city), ["Madrid"]);
+  assert.equal(call("find_events", { from, region: "Barcelona" }).structuredContent.total, 1, "a city is that city");
+  assert.equal(call("find_events", { from, region: "CT" }).structuredContent.total, 1);
   assert.equal(call("find_events", { from, online: "true" }).structuredContent.total, 1);
   assert.equal(call("find_events", { from, to: "2026-12-01" }).structuredContent.total, 1);
   assert.equal(call("find_events", { from: "2026-12-06" }).structuredContent.total, 1);
