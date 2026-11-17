@@ -3,12 +3,17 @@
 Upcoming tech events in Spain (meetups, hackathons, conferences, workshops, talks) in one
 index, with an MCP server so an agent can search them and sign you up.
 
-    node scripts/events.mjs          # crawl every source into _site/api/v1/events.json
+    node scripts/events.mjs --out data/events.json   # crawl every source
     npm test
-    node scripts/mcp-stdio.mjs       # the MCP server over stdio, reading that file
+    node scripts/mcp-stdio.mjs                       # the MCP server over stdio, reading that file
 
-`.github/workflows/daily.yml` crawls every morning and deploys to Vercel, where the server
-answers at `/mcp` (`api/mcp.js`). Tools: `find_events` and `list_filters`.
+`.github/workflows/daily.yml` crawls every morning and commits `data/events.json`. Vercel
+deploys each push to `main` and serves the file at `/api/v1/events.json`, with the MCP
+server at `/mcp` (`api/mcp.js`). Tools: `find_events` and `list_filters`.
+
+Eventbrite and dev.events refuse GitHub's runners. Run the crawl from a home connection
+and push to refresh them; in between, the daily run keeps their events from the last
+committed index.
 
 ## Sources
 

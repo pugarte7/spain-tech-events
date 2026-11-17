@@ -1,43 +1,49 @@
 name: daily
 
-# Crawls every source and publishes events.json with the MCP server at /mcp.
-# Needs the secrets VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID; without
-# the token it crawls and tests but does not deploy.
+# Crawls every source each morning and commits data/events.json. Vercel
+# deploys every push to main from its Git integration, copying that file to
+# /api/v1/events.json beside the MCP server at /mcp, so no deploy token lives
+# here. A source that fails keeps its events from the committed index.
 on:
   schedule:
     - cron: "37 4 * * *"   # 05:37 in Madrid in winter, 06:37 in summer
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 concurrency:
-  group: deploy
+  group: daily
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-      EVENTS_PREVIOUS_URL: ${{ vars.SITE_URL && format('{0}/api/v1/events.json', vars.SITE_URL) || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
       - run: npm test
-      - name: Crawl only
-        if: env.VERCEL_TOKEN == ''
-        run: node scripts/events.mjs
-      - name: Crawl and deploy
-        if: env.VERCEL_TOKEN != ''
+
+  crawl:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node scripts/events.mjs --out data/events.json
+      - name: Commit the index
         run: |
-          npm install --global vercel@latest
-          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-          vercel build --prod --token="$VERCEL_TOKEN"
-          vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          git add data/events.json
+          if git diff --cached --quiet; then exit 0; fi
+          git -c user.name="github-actions[bot]" \
+              -c user.email="41898283+github-actions[bot]@users.noreply.github.com" \
+              commit -q -m "Events $(date -u +%F)"
+          git push -q

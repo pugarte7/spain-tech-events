@@ -1,9 +1,8 @@
 // /api/v1/events.json: upcoming tech events in Spain, from every source in
 // lib/sources. Run daily; the MCP server (api/mcp.js) searches the file.
 //
-//     node scripts/events.mjs                       # crawl everything
-//     node scripts/events.mjs --only luma,mlh       # some sources
-//     node scripts/events.mjs --out /tmp/events.json
+//     node scripts/events.mjs --out data/events.json   # crawl everything, as the daily workflow does
+//     node scripts/events.mjs --only luma,mlh          # some sources, into _site/
 //
 // A source that fails never fails the run: its events still upcoming in the
 // previous index (the --out file, or EVENTS_PREVIOUS_URL) are carried over
@@ -115,6 +114,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     process.exit(1);
   }
   mkdirSync(dirname(out), { recursive: true });
-  writeFileSync(out, JSON.stringify(index));
+  // One event per line: the daily commit's diff is the events that changed.
+  writeFileSync(out, JSON.stringify(index).replace(/\{"id":/g, '\n{"id":') + "\n");
   console.log(`${index.count} events -> ${out}`);
 }

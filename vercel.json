@@ -1,10 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "node scripts/events.mjs",
+  "buildCommand": "mkdir -p _site/api/v1 && cp data/events.json _site/api/v1/events.json",
   "outputDirectory": "_site",
   "regions": ["fra1"],
-  "git": { "deploymentEnabled": false },
   "rewrites": [
     { "source": "/mcp", "destination": "/api/mcp" },
     { "source": "/mcp/", "destination": "/api/mcp" }
