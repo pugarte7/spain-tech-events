@@ -39,6 +39,8 @@ jobs:
         with:
           node-version: "22"
       - run: node scripts/events.mjs --out data/events.json
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Commit the index
         run: |
           git add data/events.json
