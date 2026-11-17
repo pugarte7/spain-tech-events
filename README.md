@@ -23,13 +23,16 @@ One file each in `lib/sources/`, all public pages or feeds, no login.
 
 | Source | What it reads |
 |---|---|
+| Sarao | open JSON feed of in-person AI meetups (CC BY 4.0) |
 | Luma | discover API: tech and AI categories around 10 cities, plus the Madrid and Barcelona feeds |
 | Meetup | search pages for 7 cities: the technology category and three keywords, first page |
 | Eventbrite | search pages (JSON-LD), two pages per search |
 | Exponential Fellowship | its events page, each event resolved on Luma |
 | Saraos | the events page of every community its home page links |
+| eventos.wiki | OpenTechEvents feed (CC BY 4.0) |
 | HackBarna Digest | its public iCal feed: curated Barcelona events |
 | Hackathon Hub | `llms-full.txt`, events in Spain |
+| Community Builders | OpenTechEvents feed of its own online meetups (CC0) |
 | MLH | the season page |
 | Devpost | hackathon search, kept when the location names Spain |
 | confs.tech | its open data on GitHub, with calls for papers |
@@ -38,5 +41,8 @@ One file each in `lib/sources/`, all public pages or feeds, no login.
 To add one: a module exporting `crawl(http)` that returns records like the others', listed
 in `lib/sources/index.mjs`. Feeds that are not tech-only set `trusted: false` and go through
 the keyword filter in `lib/classify.mjs`.
+
+Sarao and eventos.wiki publish under CC BY 4.0: each event keeps its `source` and links their page,
+and the MCP tells agents to name the source.
 
 No attendee data is stored: pages that show who is going are read for the event only.

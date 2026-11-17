@@ -25,7 +25,7 @@ const clip = (s) => {
 /** A source's record as the index stores it, or null when it is not a tech event. */
 export function normalize(raw) {
   if (!raw.title || !raw.start || !raw.url) return null;
-  const text = `${raw.title} ${raw.organizer ?? ""} ${raw.description ?? ""}`;
+  const text = `${raw.title} ${raw.organizer ?? ""} ${raw.description ?? ""} ${raw.keywords ?? ""}`;
   // An unfiltered feed's event is tech when its title or organiser says so, or
   // its description touches two topics: one stray "startup" in a blurb is not enough.
   if (!raw.trusted && !(isTech(`${raw.title} ${raw.organizer ?? ""}`) || (isTech(text) && topicsOf(text).length >= 2))) return null;
@@ -39,9 +39,12 @@ export function normalize(raw) {
     free: raw.free ?? null, registration: raw.registration ?? null, approval: raw.approval ?? null,
     spots_left: raw.spots_left ?? null, attendees: raw.attendees ?? null,
     cfp_url: raw.cfp_url ?? null, cfp_end: raw.cfp_end ?? null,
-    url: raw.url, source: raw.source, also: [],
+    url: raw.url, register_url: raw.register_url ?? null, source: raw.source, also: [],
   };
 }
+
+/** One key for the spellings of a link: lu.ma and luma.com, www, a query, a slash. */
+const linkKey = (url) => (!url ? null : url.replace(/^https?:\/\/(www\.)?/, "").replace(/^lu\.ma\//, "luma.com/").replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase());
 
 const titleWords = (title) => new Set(norm(title).replace(/\b20\d\d\b/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 2));
 /** Two titles naming one event: "HackEPS" and "HackEPS 2026", or the same words reordered. */
@@ -51,22 +54,24 @@ function sameTitle(a, b) {
   return shared > 0 && shared / (x.size + y.size - shared) >= 0.6;
 }
 
-/** One record per event: same link, or the same day and city under one title.
+/** One record per event: same link or sign-up link, or the same day and city under one title.
  * The first seen wins (callers pass sources in precedence order) and takes
  * what it lacks from the others, whose links it keeps in `also`. */
 export function dedupe(events) {
   const byUrl = new Map(), byDay = new Map(), out = [];
   for (const event of events) {
     const day = byDay.get(event.date) ?? byDay.set(event.date, []).get(event.date);
-    const first = byUrl.get(event.url) ?? day.find((e) => (!e.city || !event.city || norm(e.city) === norm(event.city))
+    const links = [event.url, event.register_url].map(linkKey).filter(Boolean);
+    const first = links.map((k) => byUrl.get(k)).find(Boolean) ?? day.find((e) => (!e.city || !event.city || norm(e.city) === norm(event.city))
       && e.online === event.online && sameTitle(e.title, event.title));
     if (!first) {
       out.push(event);
       day.push(event);
-      byUrl.set(event.url, event);
+      links.forEach((k) => byUrl.set(k, event));
       continue;
     }
-    if (event.url !== first.url && !first.also.includes(event.url)) first.also.push(event.url);
+    links.forEach((k) => byUrl.has(k) || byUrl.set(k, first));
+    if (![first.url, first.register_url, ...first.also].map(linkKey).includes(linkKey(event.url))) first.also.push(event.url);
     for (const [field, value] of Object.entries(event))
       if (first[field] == null && value != null) first[field] = value;
     if (!first.topics.length) first.topics = event.topics;

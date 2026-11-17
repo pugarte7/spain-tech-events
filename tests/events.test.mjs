@@ -7,6 +7,8 @@ import { parse as hackathonhub } from "../lib/sources/hackathonhub.mjs";
 import { madridIso, parse as hackbarna } from "../lib/sources/hackbarna.mjs";
 import { parse as luma } from "../lib/sources/luma.mjs";
 import { season } from "../lib/sources/mlh.mjs";
+import { parse as ote } from "../lib/sources/ote.mjs";
+import { parse as sarao } from "../lib/sources/sarao.mjs";
 import { parse as saraos } from "../lib/sources/saraos.mjs";
 import { dedupe, normalize, upcoming } from "../scripts/events.mjs";
 
@@ -106,4 +108,21 @@ test("hackbarna ical", () => {
     "URL:https://digest.hackbarna.com/es/events/x?utm_source=a\r\nORGANIZER;CN=MWC Barcelona:mailto:a@b.c\r\nEND:VEVENT\r\nEND:VCALENDAR");
   assert.deepEqual([event.title, event.url, event.start, event.organizer, event.venue, event.description],
     ["Hacking Wi-Fi, portales", "https://digest.hackbarna.com/es/events/x", "2026-11-16T15:00:00+01:00", "MWC Barcelona", "Cibernàrium, Barcelona", "Taller."]);
+});
+
+test("sarao and opentechevents feeds", () => {
+  const [ai] = sarao({ eventos: [{ titulo: "Claude Build Workshop", ficha: "https://saraoia.com/evento/x", ciudad: "Madrid", inicio: "2026-12-01T19:00:00+01:00",
+    organiza: "Women in Tech", precio: "Gratis", etiquetas: ["taller práctico", "con aprobación", "agotado", "lista de espera"], inscripcion: "https://luma.com/k8s" }] });
+  assert.deepEqual([ai.free, ai.registration, ai.approval, ai.fallback_type, ai.register_url], [true, "waitlist", true, "workshop", "https://luma.com/k8s"]);
+  const [conf] = ote({ events: [{ id: "https://eventos.wiki/ote/1", name: "Codemotion Madrid 2027", startDate: "2027-05-12T09:00", endDate: "2027-05-13T18:30", timezone: "Europe/Madrid",
+    url: "https://eventos.wiki/events/2027/codemotion", attendanceMode: "in-person", status: "scheduled", tags: ["IA", "Frontend"],
+    location: { venue: "La Nave", address: { street: "C. Cifuentes, 5, 28021 Madrid", region: "Madrid", country: "ES" } }, organizers: [{ name: "Codemotion" }],
+    source: { url: "https://www.meetup.com/x/events/1/" } }, { name: "Gone", startDate: "2027-01-01T10:00", status: "cancelled" }] }, "eventos.wiki");
+  assert.deepEqual([conf.start, conf.end, conf.organizer, conf.register_url], ["2027-05-12T09:00:00+02:00", "2027-05-13T18:30:00+02:00", "Codemotion", "https://www.meetup.com/x/events/1/"]);
+  const event = normalize(conf);
+  assert.deepEqual([event.region, event.type, event.topics], ["MD", "event", ["ai", "web"]]);
+  // Sarao's page and Luma's are one event: the sign-up link is the match.
+  const merged = dedupe([normalize(ai), normalize(raw({ title: "Madrid | Claude Build Workshop: Women", url: "https://lu.ma/k8s", registration: "open", spots_left: 3 }))]);
+  assert.equal(merged.length, 1);
+  assert.deepEqual([merged[0].url, merged[0].register_url, merged[0].also, merged[0].spots_left], ["https://saraoia.com/evento/x", "https://luma.com/k8s", [], 3]);
 });
