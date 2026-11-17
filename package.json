@@ -1,0 +1,10 @@
+{
+  "name": "spain-tech-events",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "crawl": "node scripts/events.mjs",
+    "test": "node --test tests/",
+    "mcp": "node scripts/mcp-stdio.mjs"
+  }
+}
