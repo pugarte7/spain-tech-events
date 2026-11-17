@@ -3,6 +3,8 @@
 Upcoming tech events in Spain (meetups, hackathons, conferences, workshops, talks) in one
 index, with an MCP server so an agent can search them and sign you up.
 
+Connect your agent to `https://spaintechevents.com/mcp`. Nothing to install, no account.
+
     node scripts/events.mjs --out data/events.json   # crawl every source
     npm test
     node scripts/mcp-stdio.mjs                       # the MCP server over stdio, reading that file
