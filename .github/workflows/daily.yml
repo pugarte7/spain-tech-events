@@ -33,14 +33,37 @@ jobs:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # Whether the dedicated X login is configured; the login itself is only
+      # given to the step that uses it.
+      HAS_X: ${{ secrets.X_STORAGE_STATE != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/setup-python@v5
+        if: env.HAS_X == 'true'
+        with:
+          python-version: "3.12"
+      # Skipped without the login. A failure here (an expired login, X refusing
+      # the browser) must not cost the day's crawl: the X source then keeps its
+      # last known events, like any other source that fails.
+      - name: Read X
+        if: env.HAS_X == 'true'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          X_STORAGE_STATE: ${{ secrets.X_STORAGE_STATE }}
+        run: |
+          pip install --quiet "scrapling[fetchers]"
+          scrapling install
+          python scripts/x-fetch.py
       - run: node scripts/events.mjs --out data/events.json
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          X_EXPECTED: ${{ env.HAS_X == 'true' && '1' || '' }}
       - name: Commit the index
         run: |
           git add data/events.json

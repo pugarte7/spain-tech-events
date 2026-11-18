@@ -12,7 +12,9 @@
 //
 // A source that fails never fails the run: its events still upcoming in the
 // previous index (the --out file, or EVENTS_PREVIOUS_URL) are carried over
-// and the source is reported as stale. first_seen is the day an event first
+// and the source is reported as stale. A source that answers does not always
+// list everything it has (Meetup's search returns a different sample each
+// time), so an event it gave within the last GRACE_DAYS stays too. first_seen is the day an event first
 // entered the index, carried from the previous one. No event at all exits 1.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -20,9 +22,12 @@ import { dirname } from "node:path";
 import { pathToFileURL } from "node:url";
 import { client } from "../lib/http.mjs";
 import { REGIONS, dayOf, isTech, keywordsOf, knownScale, norm, regionIn, regionOf, sizeOf, topicsOf, typeOf } from "../lib/classify.mjs";
+import { communityIndex, communityOf } from "../lib/socials.mjs";
 import { SOURCES } from "../lib/sources/index.mjs";
 
 export const VERSION = 2;
+/** Days an upcoming event stays after its source last listed it. */
+const GRACE_DAYS = 3;
 const DESCRIPTION_MAX = 400;
 const plain = (s) => String(s ?? "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 const clip = (s) => {
@@ -36,8 +41,10 @@ export function normalize(raw) {
   if (!raw.title || !raw.start || !raw.url) return null;
   const description = plain(raw.description);
   const text = `${raw.title} ${raw.organizer ?? ""} ${description} ${raw.keywords ?? ""}`;
-  // An unfiltered feed's event is tech when its title or organiser says so, or
-  // its description touches two topics: one stray "startup" in a blurb is not enough.
+  // Only a hand-curated list of tech events is trusted whole. Anywhere else,
+  // a tech community's own calendar included (it also carries its dinners and
+  // its causes), the title or organiser has to say tech, or the description
+  // touch two topics: one stray "startup" in a blurb is not enough.
   if (!raw.trusted && !(isTech(`${raw.title} ${raw.organizer ?? ""}`) || (isTech(text) && topicsOf(text).length >= 2))) return null;
   const region = regionOf(raw.city, raw.region_hint) ?? regionIn(raw.place_text) ?? regionIn(raw.address);
   const attendees = number(raw.attendees), capacity = number(raw.capacity);
@@ -58,14 +65,19 @@ export function normalize(raw) {
     registration: raw.registration ?? null, approval: raw.approval ?? null, spots_left: number(raw.spots_left),
     account_required: raw.account ?? null,
     cfp_url: raw.cfp_url ?? null, cfp_end: raw.cfp_end ?? null,
-    url: raw.url, register_url: raw.register_url ?? raw.url, source: raw.source, also: [], first_seen: null,
+    url: raw.url, register_url: raw.register_url ?? raw.url, via: null, last_seen: null,
+    // Where to follow the organiser: the community's accounts, by network.
+    community: null, socials: raw.socials && Object.keys(raw.socials).length ? raw.socials : null,
+    source: raw.source, also: [], first_seen: null,
   };
 }
 
 /** One key for the spellings of a link: lu.ma and luma.com, www, a query, a slash. */
 export const linkKey = (url) => (!url ? null : url.replace(/^https?:\/\/(www\.)?/, "").replace(/^lu\.ma\//, "luma.com/").replace(/[?#].*$/, "").replace(/\/$/, "").toLowerCase());
 
-const titleWords = (title) => new Set(norm(title).replace(/\b20\d\d\b/g, "").split(/[^a-z0-9]+/).filter((w) => w.length > 2));
+// "E-Show" and "X-Ops" are one word each, or "E-Show Madrid" reads as "Show Madrid".
+const titleWords = (title) => new Set(norm(title).replace(/\b20\d\d\b/g, "").replace(/\b([a-z])-(?=[a-z])/g, "$1")
+  .split(/[^a-z0-9]+/).filter((w) => w.length > 2));
 /** Two titles naming one event: "HackEPS" and "HackEPS 2026", or the same words reordered. */
 function sameTitle(a, b) {
   const [x, y] = [titleWords(a.title), titleWords(b.title)];
@@ -74,8 +86,31 @@ function sameTitle(a, b) {
   // A directory names a conference in two words ("Devfest Lleida"); the
   // organiser's own page adds a tagline. Between two organisers' pages the
   // longer title is another event, a talk at that conference.
-  return shared >= 2 && shared === Math.min(x.size, y.size) && (DIRECTORIES.has(a.source) || DIRECTORIES.has(b.source));
+  // The words two titles share that say which event it is: not the city, not "meetup".
+  const place = new Set([...titleWords(a.city ?? ""), ...titleWords(b.city ?? "")]);
+  const telling = [...x].filter((w) => y.has(w) && !place.has(w) && !COMMON.has(w));
+  // A directory names a conference in two words ("Devfest Lleida") or spells it
+  // its own way ("CDTM VLC Hacks"); the organiser's page adds a tagline. Between
+  // two organisers' pages the longer title is another event, a talk at that conference.
+  const directory = DIRECTORIES.has(a.source) || DIRECTORIES.has(b.source);
+  if (directory && ((shared >= 2 && shared === Math.min(x.size, y.size)) || telling.length >= 2)) return true;
+  // Starting the same minute in the same city, two titles that share a telling
+  // word are one event listed twice, often once translated.
+  const timed = a.start.includes("T") && b.start.includes("T") && Date.parse(a.start) === Date.parse(b.start);
+  if (timed && a.city && b.city && shared >= 2 && telling.length >= 1) return true;
+  // A post announces an event in its own words, and two channels announce the
+  // same one differently: in one city on one day, one telling word in common
+  // is enough. A post wrongly folded into an event costs only the post.
+  if (!(POSTS.has(a.source) || POSTS.has(b.source)) || !a.city || !b.city) return false;
+  return telling.some((w) => w.length >= 5);
 }
+const POSTS = new Set(["telegram", "x"]);
+const COMMON = new Set(["meetup", "charla", "charlas", "taller", "talleres", "evento", "eventos", "workshop", "conference", "conferencia",
+  "community", "comunidad", "proximo", "proxima", "noviembre", "diciembre", "enero", "febrero", "marzo", "abril", "junio", "julio",
+  "agosto", "septiembre", "octubre", "jueves", "viernes", "sabado", "domingo", "lunes", "martes", "miercoles", "edicion", "online",
+  "hackathon", "hackaton", "summit", "congreso", "congress", "jornadas", "conf", "day", "days", "tech", "europe", "spain", "espana",
+  "global", "world", "international", "open", "edition", "networking", "session", "sesion", "the", "and", "con", "para", "for", "with",
+  "del", "los", "las", "una", "how", "como"]);
 /** One organiser, one starting minute: the same event under a translated title. */
 const sameSlot = (a, b) => a.organizer && norm(a.organizer) === norm(b.organizer) && a.start.includes("T") && b.start.includes("T")
   && Date.parse(a.start) === Date.parse(b.start);
@@ -109,6 +144,7 @@ export function dedupe(events) {
         && first.source !== "luma" && first.source !== "meetup") first.register_url = event.register_url;
     for (const field of FILL) if (first[field] == null && event[field] != null) first[field] = event[field];
     for (const field of ["topics", "keywords"]) first[field] = [...new Set([...first[field], ...event[field]])];
+    if (event.socials) first.socials = { ...event.socials, ...first.socials };
     if (first.type === "event" && event.type !== "event") first.type = event.type;
     const people = Math.max(first.attendees ?? 0, first.capacity ?? 0) || null;
     if (people) [first.size, first.size_basis] = [sizeOf(people), "source"];
@@ -127,18 +163,27 @@ async function previousIndex(out) {
   return null;
 }
 
-export async function build({ only = null, http = client(), now = new Date(), previous = null, sources = SOURCES } = {}) {
+const DIRECTORY = "https://directory.communitybuilders.dev/data/communities.json";
+
+/** `directory` is Community Builders' list, for each event's community and its accounts; read when not given. */
+export async function build({ only = null, http = client(), now = new Date(), previous = null, sources = SOURCES, directory } = {}) {
   const today = dayOf(now.toISOString());
   const names = Object.keys(sources).filter((name) => !only || only.includes(name));
   const report = {};
   const results = await Promise.all(names.map(async (name) => {
     try {
       const raw = await sources[name].crawl(http, now);
-      const events = raw.map(normalize).filter((e) => e && upcoming(e, today));
-      report[name] = { read: raw.length, events: events.length };
-      return events;
+      // `via` is the crawler that read it, which is not always its `source`
+      // (a Meetup group's page and the Meetup search both give "meetup").
+      const events = raw.map(normalize).filter((e) => e && upcoming(e, today)).map((e) => ({ ...e, via: name, last_seen: today }));
+      const got = new Set(events.map((e) => e.id));
+      const since = new Date(now.getTime() - GRACE_DAYS * 86_400_000).toISOString().slice(0, 10);
+      const kept = (previous?.events ?? []).filter((e) => (e.via ?? e.source) === name && !got.has(e.id) && upcoming(e, today)
+        && e.last_seen && e.last_seen >= since);
+      report[name] = { read: raw.length, events: events.length, ...(kept.length ? { kept: kept.length } : {}) };
+      return [...events, ...kept];
     } catch (error) {
-      const stale = (previous?.events ?? []).filter((e) => e.source === name && upcoming(e, today));
+      const stale = (previous?.events ?? []).filter((e) => (e.via ?? e.source) === name && upcoming(e, today));
       report[name] = { read: 0, events: stale.length, error: String(error.message ?? error), stale: true };
       return stale;
     }
@@ -146,6 +191,16 @@ export async function build({ only = null, http = client(), now = new Date(), pr
   const seen = new Map((previous?.events ?? []).flatMap((e) => [[e.id, e.first_seen], [linkKey(e.url), e.first_seen]]));
   const events = dedupe(results.flat()).sort((a, b) => a.date.localeCompare(b.date) || Date.parse(a.start) - Date.parse(b.start));
   for (const event of events) event.first_seen = seen.get(event.id) ?? seen.get(linkKey(event.url)) ?? event.first_seen ?? today;
+  // The accounts of each event's community. Without the directory the events
+  // keep what their own source gave.
+  let communities = new Map();
+  try { communities = communityIndex(directory ?? await http.json(DIRECTORY)); } catch { /* the directory is down */ }
+  for (const event of events) {
+    const community = communityOf(event, communities);
+    if (!community) continue;
+    event.community = community.name;
+    event.socials = { ...community.socials, ...event.socials };
+  }
   return { version: VERSION, generated_at: now.toISOString(), count: events.length, sources: report, events };
 }
 

@@ -29,17 +29,18 @@ export function typeOf(text, fallback = "event") {
 // Coarse subjects, for browsing; the fine vocabulary is _classify.js KEYWORDS.
 const TOPICS = {
   ai: /\b(ai|ia|llms?|genai|gen ai|machine learning|ml|deep learning|agents?|agentes?|claude|openai|chatgpt|gpt|gemini|copilot|rag|mcp|inteligencia artificial|artificial intelligence|mlops|nlp|computer vision|vibe ?coding)\b/,
-  data: /\b(data|datos|analytics|big data|sql|dbt|databricks|snowflake|spark|kafka|bi|power bi|tableau|data ?science|data engineering|postgres(ql)?)\b/,
+  data: /\b(data|datos|analytics|big data|sql|dbt|databricks|snowflake|spark|kafka|power bi|business intelligence|tableau|data ?science|data engineering|postgres(ql)?)\b/,
   web: /\b(javascript|typescript|react|vue|angular|svelte|node(js)?|frontend|front-end|css|html|web ?dev|next\.?js|wordpress|drupal|php|laravel|symfony|django|rails)\b/,
   mobile: /\b(android|ios|swift|kotlin|flutter|react native|mobile)\b/,
   cloud: /\b(cloud|aws|azure|gcp|google cloud|kubernetes|k8s|docker|devops|sre|platform engineering|serverless|terraform|observability|cloud ?native|infra(structure)?)\b/,
   security: /\b(security|seguridad|ciberseguridad|cybersecurity|hacking|pentest(ing)?|owasp|infosec|ctf|red team)\b/,
   blockchain: /\b(blockchain|crypto|cripto|web3|ethereum|bitcoin|solana|defi|nft)\b/,
-  product: /\b(product management|product manager|producto digital|ux|ui|design system|diseno de producto|product design|agile|scrum|kanban|no-?code|low-?code|power platform|salesforce|atlassian|jira)\b/,
+  product: /\b(product management|product manager|product (leaders?|people|ops)|producto digital|ux|ui|design system|diseno de producto|product design|agile|scrum|kanban|no-?code|low-?code|power platform|salesforce|atlassian|jira)\b/,
   startups: /\b(startups?|founders?|emprend\w+|venture|vc|inversores?|investors?|pitch|demo day|saas|fundrais\w+)\b/,
-  gamedev: /\b(game ?dev|videojuegos?|unity|unreal|godot|game jam|gaming)\b/,
-  languages: /\b(python|java|golang|rust|scala|elixir|c\+\+|\.net|dotnet|c#|ruby|clojure|haskell|kotlin|spring)\b/,
-  hardware: /\b(iot|hardware|robotic[as]?|arduino|raspberry|semiconductor\w*|chips?|embedded|quantum|cuantic\w+|drones?|3d printing|space ?tech|aerospace)\b/,
+  gamedev: /\b(game ?dev|game (creators|developers|designers?)|videojuegos?|unity|unreal|godot|game jam|gaming)\b/,
+  // .NET, C# and C++ start or end on a symbol, where \b does not hold.
+  languages: /\b(python|java|golang|rust|scala|elixir|dotnet\w*|ruby|clojure|haskell|kotlin|spring)\b|(^|[^a-z0-9])(\.net|c#|c\+\+)(?![a-z0-9])/,
+  hardware: /\b(iot|hardware|robotic[as]?|arduino|raspberry|semiconductor\w*|chips?|embedded|quantum|cuantic\w+|drone?s?|3d printing|space ?tech|aerospace)\b/,
 };
 export const TOPIC_NAMES = Object.keys(TOPICS);
 export function topicsOf(text) {
@@ -47,8 +48,15 @@ export function topicsOf(text) {
   return TOPIC_NAMES.filter((name) => TOPICS[name].test(t));
 }
 
-const GENERIC_TECH = /\b(tech|tecnolog\w+|software|developers?|desarrollador\w*|programa(cion|dor\w*)|coding|codigo|\bcode\b|engineer\w*|ingenier\w+ (de )?(software|datos)|open ?source|hackers?|devs?|api|geeks?|informatic\w+)\b/;
+const GENERIC_TECH = /\b(tech|tecnolog\w+|software|developers?|desarrollador\w*|programa(cion|dor\w*)|coding|codigo|\bcode\b|engineer\w*|ingenier\w+ (de )?(software|datos)|open ?source|hackers?|devs?|api|geeks?|informatic\w+|github|gitlab|codex|finops|devfest|cyber(?!punk)\w*|[a-z]*jug|pydata|linux|(fin|ed|health|deep|legal|prop|climate|clean|gov|insur|reg)tech|techies|xr|realidad (virtual|aumentada)|a11y|accesibilidad web|qa|testing|e-?commerce|opentelemetry|gophers?|go (ug|user group|meetup)|nis2|make(r)?spaces?)\b/;
 const NOT_TECH = /\b(dj|tech house|techno|speed dating|cuffing|yoga|tantra|wine|vino|kids|ninos|ninas|philosophy|filosofia|emotional intelligence|language exchange|intercambio de idiomas)\b/;
+/** A Luma rich-text document as plain text. */
+export function mirrorText(node) {
+  if (!node || typeof node !== "object") return "";
+  const inner = (node.content ?? []).map(mirrorText).join("");
+  return node.type === "text" ? node.text ?? "" : /paragraph|heading|list_item|bullet_list/.test(node.type ?? "") ? `${inner}\n` : inner;
+}
+
 export function isTech(text) {
   const t = norm(text);
   if (NOT_TECH.test(t)) return false;

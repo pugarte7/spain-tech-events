@@ -2,3 +2,7 @@ _site/
 node_modules/
 .vercel/
 .DS_Store
+__pycache__/
+data/x-state.json
+data/x-tweets.json
+data/x-profile/

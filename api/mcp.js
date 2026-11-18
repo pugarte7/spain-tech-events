@@ -17,7 +17,7 @@
 
 import { after, capture, cut, event, origin, redact, uuidv7 } from "./_track.js";
 import { KEYWORD_FORMS, KEYWORD_WORDS, QUERY_KEYWORD, words } from "./_classify.js";
-import { REGIONS, SIZES, TOPIC_NAMES, TYPE_NAMES, norm, regionNamed } from "./_events.js";
+import { REGIONS, SIZES, TOPIC_NAMES, TYPE_NAMES, mirrorText, norm, regionNamed } from "./_events.js";
 
 const MODERN = "2026-07-28";
 const LEGACY = ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
@@ -39,6 +39,8 @@ const INSTRUCTIONS =
   "dates (days in Spain), place, price when the source states one, how many people (attendees signed up so far, " +
   "capacity, and size as an order of magnitude), the registration state at crawl time and the link to sign up " +
   "(register_url). When you mention an event, name where it comes from (its source) and link its url. " +
+  "socials are the organising community's own accounts, for someone who wants to follow it and hear of its next " +
+  "events: offer them, and follow one for the person only if they ask. " +
   "To sign someone up: registration_guide has the procedure and a template for the notes you keep for them (a " +
   "file such as ~/tech-events.md, or your memory); event_registration reads one event's sign-up form live, each " +
   "question marked for the person or for you; you fill it with your own browser only after they say yes, and " +
@@ -96,7 +98,8 @@ const TOOLS = {
         "result has its type, topics and keywords (languages, frameworks, cloud, data and AI tools read from " +
         "its text), dates, city and region, venue and address, price (free, or price_min and currency), people " +
         "(attendees so far, capacity, size), the registration state at crawl time, where it comes from (source, " +
-        "url) and the link to sign up (register_url). When nothing matches, no_match says how many events each " +
+        "url), the link to sign up (register_url) and, when known, the organising community and where to " +
+        "follow it (socials: its accounts on X, LinkedIn, Telegram, Meetup and so on, by network). When nothing matches, no_match says how many events each " +
         "filter costs. The starting point when asked what is on, or to sign someone up; registration_guide has " +
         "the procedure.",
       inputSchema: { type: "object", properties: {
@@ -357,12 +360,6 @@ export const whoAnswers = (question) => {
   return /agree|check|terms/.test(question.type ?? "") || CONSENT.test(label) || PERSON_ASKS.test(label) ? "person" : "agent";
 };
 
-/** A Luma rich-text document as plain text. */
-function mirrorText(node) {
-  if (!isObject(node)) return "";
-  const inner = (node.content ?? []).map(mirrorText).join("");
-  return node.type === "text" ? node.text ?? "" : /paragraph|heading|list_item|bullet_list/.test(node.type ?? "") ? `${inner}\n` : inner;
-}
 const amount = (cents, currency) => (typeof cents === "number" && cents > 0 ? { amount: cents / 100, currency: String(currency ?? "eur").toUpperCase() } : null);
 
 export function lumaForm(data) {
