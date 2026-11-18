@@ -60,7 +60,7 @@ the precedence when two list the same event.
 | Devpost | hackathon search, kept when the location names Spain |
 | Hackathon Hub | `llms-full.txt`, events in Spain |
 | WordCamp Central | its public API: WordCamps in Spain, with expected attendance |
-| Conference sites | the home page of each active conference in Community Builders' directory, read for its next date |
+| Conference sites | the home page of each active conference in Community Builders' directory and of a hand-kept list of university hackathons, read for its next date |
 | developers.events | its open list of developer conferences, with calls for papers |
 | confs.tech | its open data on GitHub, with calls for papers |
 | dev.events | the Spain page (JSON-LD) |

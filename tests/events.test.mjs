@@ -119,7 +119,7 @@ test("x: the directory's accounts and a dumped tweet become an event", () => {
     { status: "active", name: "Dup", location: "n/a", urls: [{ url: "https://x.com/RootedCON/status/123" }] },
     { status: "active", name: "Not an account", location: "n/a", urls: [{ url: "https://x.com/i/web/status/1" }, { url: "https://twitter.com/share?url=x" }] },
   ];
-  assert.deepEqual(handles(dir).map((a) => a.handle), ["rootedcon"], "intent and share links are not accounts, twitter and x dedupe");
+  assert.deepEqual(handles(dir, []).map((a) => a.handle), ["rootedcon"], "intent and share links are not accounts, twitter and x dedupe");
   const account = handles(dir)[0];
   const tweet = { handle: "rootedcon", id: "987", url: "https://x.com/rootedcon/status/987",
     text: "Ya tenemos fecha: nos vemos el 6 de marzo de 2027 en Madrid. Inscripción: https://lu.ma/nn2027",
