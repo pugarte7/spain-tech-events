@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spain Tech Events: los eventos tech de España en tu agente</title>
+<meta name="description" content="Un servidor MCP con los eventos tech de España: tu agente los busca y te apunta. An MCP server with the tech events in Spain: your agent searches them and signs you up.">
+<meta name="color-scheme" content="light">
+<link rel="canonical" href="https://spaintechevents.com/">
+<link rel="preload" href="/fonts/inter-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="wrap top-in">
+    <h1 class="brand">Spain Tech Events</h1>
+    <ol class="steps" id="steps" aria-label="Progreso"></ol>
+  </div>
+</header>
+<hr class="rule">
+
+<main class="wrap stage">
+  <div class="actor">
+    <svg id="face" viewBox="0 0 32 32" role="img" aria-label="Bit" shape-rendering="crispEdges"></svg>
+  </div>
+
+  <section class="talk" aria-labelledby="say">
+    <div class="bubble" id="bubble">
+      <p class="say" id="say" aria-hidden="true"></p>
+      <p class="sr" id="say-sr" aria-live="polite"></p>
+    </div>
+    <div class="extra" id="extra"></div>
+    <div class="choices" id="choices"></div>
+  </section>
+</main>
+
+<hr class="rule">
+<footer class="wrap foot">
+  <div class="foot-nav">
+    <button class="link" id="back" type="button" hidden></button>
+    <button class="link" id="restart" type="button" hidden></button>
+  </div>
+  <a class="link" href="https://github.com/pugarte7/spain-tech-events" rel="noopener">GitHub</a>
+</footer>
+
+<noscript>
+  <div class="wrap noscript">
+    <p>Conecta tu agente a / Connect your agent to <code>https://spaintechevents.com/mcp</code></p>
+  </div>
+</noscript>
+<script src="/face.js" defer></script>
+<script src="/app.js" defer></script>
+</body>
+</html>

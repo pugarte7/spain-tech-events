@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "mkdir -p _site/api/v1 && cp data/events.json _site/api/v1/events.json",
+  "buildCommand": "mkdir -p _site/api/v1 && cp -R web/. _site/ && cp data/events.json _site/api/v1/events.json",
   "outputDirectory": "_site",
   "regions": ["fra1"],
   "rewrites": [
