@@ -54,6 +54,7 @@ the precedence when two list the same event.
 | Saraos | the events page of every community its home page links |
 | Eventbrite | search pages (JSON-LD), two pages per search |
 | eventos.wiki | OpenTechEvents feed (CC BY 4.0) |
+| techconf | techconf.es OpenTechEvents feed (CC BY 4.0) |
 | HackBarna Digest | its public iCal feed: curated Barcelona events |
 | Community Builders | OpenTechEvents feed of its own online meetups (CC0) |
 | MLH | the season page |
@@ -72,7 +73,7 @@ else, a tech community's own calendar included, sets `trusted: false` and goes t
 keyword filter in `api/_events.js`, so a tech group's dinner or a talk on another subject is
 left out.
 
-Sarao and eventos.wiki publish under CC BY 4.0: each event keeps its `source` and links their
+Sarao, eventos.wiki and techconf.es publish under CC BY 4.0: each event keeps its `source` and links their
 page, and the MCP tells agents to name the source.
 
 dev.events refuses GitHub's runners, and Eventbrite sometimes does. Run the crawl from a
